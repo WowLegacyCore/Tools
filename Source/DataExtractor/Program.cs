@@ -45,7 +45,7 @@ namespace DataExtractor
             Console.WriteLine(@"               \/__/  \/_/    Core Data Extractor");
             Console.WriteLine("\r");
 
-            BaseDirectory = /*Environment.CurrentDirectory*/ @"D:\Games\World of Warcraft";
+            BaseDirectory = Environment.CurrentDirectory;
             Product = "wow_classic_ptr";
             BuildingsDirectory = $"{BaseDirectory}/Buildings/";
 
