@@ -21,7 +21,7 @@ public class FileWriter
 {
     public static void WriteFile(Stream data, string path, FileMode fileMode = FileMode.Create)
     {
-        using (MemoryStream ms = new MemoryStream())
+        using (MemoryStream ms = new())
         using (var fs = new FileStream(path, fileMode, FileAccess.ReadWrite, FileShare.ReadWrite, 4096, true))
         {
             data.CopyTo(ms);

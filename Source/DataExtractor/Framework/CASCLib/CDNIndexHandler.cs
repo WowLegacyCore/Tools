@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+//using System.Net.Http;
+//using System.Net.Http.Headers;
 
 namespace DataExtractor.CASCLib
 {
@@ -14,11 +16,12 @@ namespace DataExtractor.CASCLib
 
     public class CDNIndexHandler
     {
-        private static readonly MD5HashComparer comparer = new MD5HashComparer();
-        private Dictionary<MD5Hash, IndexEntry> CDNIndexData = new Dictionary<MD5Hash, IndexEntry>(comparer);
+        private static readonly MD5HashComparer comparer = new();
+        private Dictionary<MD5Hash, IndexEntry> CDNIndexData = new(comparer);
 
         private CASCConfig config;
 
+        public IReadOnlyDictionary<MD5Hash, IndexEntry> Data => CDNIndexData;
         public int Count => CDNIndexData.Count;
 
         private CDNIndexHandler(CASCConfig cascConfig)
@@ -64,7 +67,7 @@ namespace DataExtractor.CASCLib
                     if (key.IsZeroed()) // wtf?
                         throw new Exception("key.IsZeroed()");
 
-                    IndexEntry entry = new IndexEntry()
+                    IndexEntry entry = new()
                     {
                         Index = i,
                         Size = br.ReadInt32BE(),
@@ -111,7 +114,7 @@ namespace DataExtractor.CASCLib
 
                 if (File.Exists(path))
                 {
-                    using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         ParseIndex(fs, i);
                 }
                 else
@@ -125,9 +128,12 @@ namespace DataExtractor.CASCLib
             }
         }
 
-        public Stream OpenDataFile(IndexEntry entry)
+        public Stream OpenDataFile(IndexEntry entry, int numRetries = 0)
         {
             var archive = config.Archives[entry.Index];
+
+            if (numRetries >= 5)
+                return null;
 
             string file = config.CDNPath + "/data/" + archive.Substring(0, 2) + "/" + archive.Substring(2, 2) + "/" + archive;
 
@@ -136,7 +142,7 @@ namespace DataExtractor.CASCLib
             if (stream != null)
             {
                 stream.Position = entry.Offset;
-                MemoryStream ms = new MemoryStream(entry.Size);
+                MemoryStream ms = new(entry.Size);
                 stream.CopyBytes(ms, entry.Size);
                 ms.Position = 0;
                 return ms;
@@ -157,15 +163,31 @@ namespace DataExtractor.CASCLib
             string url = "http://" + config.CDNHost + "/" + file;
 
             HttpWebRequest req = WebRequest.CreateHttp(url);
+            req.ReadWriteTimeout = 15000;
             //req.Headers[HttpRequestHeader.Range] = string.Format("bytes={0}-{1}", entry.Offset, entry.Offset + entry.Size - 1);
             req.AddRange(entry.Offset, entry.Offset + entry.Size - 1);
-            using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
-            using (Stream respStream = resp.GetResponseStream())
+
+            HttpWebResponse resp;
+
+            try
             {
-                MemoryStream ms = new MemoryStream(entry.Size);
-                respStream.CopyBytes(ms, entry.Size);
-                ms.Position = 0;
-                return ms;
+                using (resp = (HttpWebResponse)req.GetResponse())
+                using (Stream rstream = resp.GetResponseStream())
+                {
+                    MemoryStream ms = new(entry.Size);
+                    rstream.CopyBytes(ms, entry.Size);
+                    ms.Position = 0;
+                    return ms;
+                }
+            }
+            catch (WebException exc)
+            {
+                resp = (HttpWebResponse)exc.Response;
+
+                if (exc.Status == WebExceptionStatus.ProtocolError && (resp.StatusCode == HttpStatusCode.NotFound || resp.StatusCode == (HttpStatusCode)429))
+                    return OpenDataFile(entry, numRetries + 1);
+                else
+                    return null;
             }
         }
 
@@ -180,7 +202,7 @@ namespace DataExtractor.CASCLib
             if (stream != null)
             {
                 stream.Position = 0;
-                MemoryStream ms = new MemoryStream();
+                MemoryStream ms = new();
                 stream.CopyTo(ms);
                 ms.Position = 0;
                 return ms;
@@ -221,10 +243,10 @@ namespace DataExtractor.CASCLib
             //long fileSize = GetFileSize(url);
             //req.AddRange(0, fileSize - 1);
             using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
-            using (Stream respStream = resp.GetResponseStream())
+            using (Stream stream = resp.GetResponseStream())
             {
-                MemoryStream ms = new MemoryStream();
-                respStream.CopyTo(ms);
+                MemoryStream ms = new();
+                stream.CopyToStream(ms, resp.ContentLength);
                 ms.Position = 0;
                 return ms;
             }
@@ -233,15 +255,27 @@ namespace DataExtractor.CASCLib
         private Stream OpenFile(string url)
         {
             HttpWebRequest req = WebRequest.CreateHttp(url);
+            req.ReadWriteTimeout = 15000;
             //long fileSize = GetFileSize(url);
             //req.AddRange(0, fileSize - 1);
             using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
             using (Stream stream = resp.GetResponseStream())
             {
-                MemoryStream ms = new MemoryStream();
+                MemoryStream ms = new();
                 stream.CopyToStream(ms, resp.ContentLength);
                 ms.Position = 0;
                 return ms;
+            }
+        }
+
+        private static long GetFileSize(string url)
+        {
+            HttpWebRequest request = WebRequest.CreateHttp(url);
+            request.Method = "HEAD";
+
+            using (HttpWebResponse resp = (HttpWebResponse)request.GetResponse())
+            {
+                return resp.ContentLength;
             }
         }
 

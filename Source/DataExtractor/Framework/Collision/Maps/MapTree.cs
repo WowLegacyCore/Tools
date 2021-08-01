@@ -45,7 +45,7 @@ namespace DataExtractor.Framework.Collision
             if (!File.Exists(fullname))
                 return false;
 
-            using (BinaryReader binaryReader = new BinaryReader(File.Open(fullname, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader binaryReader = new(File.Open(fullname, FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 if (binaryReader.ReadStringFromChars(8) == SharedConst.VMAP_MAGIC)
                 {
@@ -87,7 +87,7 @@ namespace DataExtractor.Framework.Collision
             string tilefile = _basePath + GetTileFileName(_mapId, tileX, tileY);
             if (File.Exists(tilefile))
             {
-                using (BinaryReader binaryReader = new BinaryReader(File.Open(tilefile, FileMode.Open, FileAccess.Read, FileShare.Read)))
+                using (BinaryReader binaryReader = new(File.Open(tilefile, FileMode.Open, FileAccess.Read, FileShare.Read)))
                 {
                     if (binaryReader.ReadStringFromChars(8) != SharedConst.VMAP_MAGIC)
                         return false;
@@ -96,8 +96,7 @@ namespace DataExtractor.Framework.Collision
                     for (uint i = 0; i < numSpawns; ++i)
                     {
                         // read model spawns
-                        ModelSpawn spawn;
-                        var result = ModelSpawn.ReadFromFile(binaryReader, out spawn);
+                        var result = ModelSpawn.ReadFromFile(binaryReader, out ModelSpawn spawn);
                         if (result)
                         {
                             // acquire model instance
@@ -150,7 +149,7 @@ namespace DataExtractor.Framework.Collision
                 string tilefile = _basePath + GetTileFileName(_mapId, tileX, tileY);
                 if (File.Exists(tilefile))
                 {
-                    using (BinaryReader binaryReader = new BinaryReader(File.Open(tilefile, FileMode.Open, FileAccess.Read, FileShare.Read)))
+                    using (BinaryReader binaryReader = new(File.Open(tilefile, FileMode.Open, FileAccess.Read, FileShare.Read)))
                     {
                         bool result = true;
                         if (binaryReader.ReadStringFromChars(8) != SharedConst.VMAP_MAGIC)
@@ -160,8 +159,7 @@ namespace DataExtractor.Framework.Collision
                         for (uint i = 0; i < numSpawns && result; ++i)
                         {
                             // read model spawns
-                            ModelSpawn spawn;
-                            result = ModelSpawn.ReadFromFile(binaryReader, out spawn);
+                            result = ModelSpawn.ReadFromFile(binaryReader, out ModelSpawn spawn);
                             if (result)
                             {
                                 // release model instance
@@ -202,18 +200,18 @@ namespace DataExtractor.Framework.Collision
         public static void UnpackTileID(uint ID, out uint tileX, out uint tileY) { tileX = ID >> 16; tileY = ID & 0xFF; }
 
         uint _mapId;
-        BIH _tree = new BIH();
+        BIH _tree = new();
         ModelInstance[] _treeValues; // the tree entries
         uint _nTreeValues;
 
-        Dictionary<uint, uint> _spawnIndices = new Dictionary<uint, uint>();
+        Dictionary<uint, uint> _spawnIndices = new();
 
         // Store all the map tile idents that are loaded for that map
         // some maps are not splitted into tiles and we have to make sure, not removing the map before all tiles are removed
         // empty tiles have no tile file, hence map with bool instead of just a set (consistency check)
-        Dictionary<uint, bool> _loadedTiles = new Dictionary<uint, bool>();
+        Dictionary<uint, bool> _loadedTiles = new();
         // stores <tree_index, reference_count> to invalidate tree values, unload map, and to be able to report errors
-        Dictionary<uint, uint> _loadedSpawns = new Dictionary<uint, uint>();
+        Dictionary<uint, uint> _loadedSpawns = new();
         string _basePath;
     }
 }

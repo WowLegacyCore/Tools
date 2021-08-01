@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright (C) 2012-2019 CypherCore <http://github.com/CypherCore>
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 
 namespace DataExtractor.Vmap.Collision
 {
@@ -33,28 +34,27 @@ namespace DataExtractor.Vmap.Collision
             iSrcDir = pSrcDirName;
         }
 
-        public bool convertWorld2()
+        public bool ConvertWorld2()
         {
-            bool success = readMapSpawns();
+            bool success = ReadMapSpawns();
             if (!success)
                 return false;
 
             float invTileSize = 1.0f / 533.33333f;
 
             // export Map data
-            foreach (var mapPair in mapData)
+            foreach (var (id, mapSpawn) in mapData)
             {
-                var mapSpawn = mapPair.Value;
                 // build global map tree
-                List<ModelSpawn> mapSpawns = new List<ModelSpawn>();
+                List<ModelSpawn> mapSpawns = new();
 
-                Console.WriteLine($"Calculating model bounds for map {mapPair.Key}...");
+                Console.WriteLine($"Calculating model bounds for map {id}...");
                 foreach (var entry in mapSpawn.UniqueEntries.Values)
                 {
                     // M2 models don't have a bound set in WDT/ADT placement data, i still think they're not used for LoS at all on retail
                     if (Convert.ToBoolean(entry.flags & ModelFlags.M2))
                     {
-                        if (!calculateTransformedBound(entry))
+                        if (!CalculateTransformedBound(entry))
                             continue;
                     }
 
@@ -64,22 +64,22 @@ namespace DataExtractor.Vmap.Collision
                     var tileEntries = Convert.ToBoolean(entry.flags & ModelFlags.ParentSpawn) ? mapSpawn.ParentTileEntries : mapSpawn.TileEntries;
 
                     AxisAlignedBox bounds = entry.iBound;
-                    Vector2 low = new Vector2(bounds.Lo.X * invTileSize, bounds.Lo.Y * invTileSize);
-                    Vector2 high = new Vector2(bounds.Hi.X * invTileSize, bounds.Hi.Y * invTileSize);
+                    Vector2 low = new(bounds.Lo.X * invTileSize, bounds.Lo.Y * invTileSize);
+                    Vector2 high = new(bounds.Hi.X * invTileSize, bounds.Hi.Y * invTileSize);
                     for (uint x = (ushort)low.X; x <= (ushort)high.X; ++x)
                         for (uint y = (ushort)low.Y; y <= (ushort)high.Y; ++y)
                             tileEntries.Add(StaticMapTree.PackTileID(x, y), new TileSpawn(entry.ID, entry.flags));
                 }
 
-                Console.WriteLine($"Creating map tree for map {mapPair.Key}...");
-                BIH pTree = new BIH();
+                Console.WriteLine($"Creating map tree for map {id}...");
+                BIH pTree = new();
                 pTree.build(mapSpawns, BoundsTrait.GetBounds);
 
                 // ===> possibly move this code to StaticMapTree class
 
                 // write map tree file
-                string mapfilename = $"{iDestDir}/{mapPair.Key:D4}.vmtree";
-                using (BinaryWriter writer = new BinaryWriter(File.Open(mapfilename, FileMode.Create, FileAccess.Write)))
+                string mapfilename = $"{iDestDir}/{id:D4}.vmtree";
+                using (BinaryWriter writer = new(File.Open(mapfilename, FileMode.Create, FileAccess.Write)))
                 {
                     //general info
                     writer.WriteString(SharedConst.VMAP_MAGIC);
@@ -103,12 +103,11 @@ namespace DataExtractor.Vmap.Collision
                 {
                     var spawnList = mapSpawn.TileEntries[key];
 
-                    uint x, y;
-                    StaticMapTree.UnpackTileID(key, out x, out y);
-                    string tilefilename =  $"{iDestDir}/{mapPair.Key:D4}_{y:D2}_{x:D2}.vmtile";
-                    using (BinaryWriter writer = new BinaryWriter(File.Open(tilefilename, FileMode.Create, FileAccess.Write)))
+                    StaticMapTree.UnpackTileID(key, out var x, out var y);
+                    string tilefilename =  $"{iDestDir}/{id:D4}_{y:D2}_{x:D2}.vmtile";
+                    using (BinaryWriter writer = new(File.Open(tilefilename, FileMode.Create, FileAccess.Write)))
                     {
-                        var parentTileEntries = mapPair.Value.ParentTileEntries[key];
+                        var parentTileEntries = mapSpawn.ParentTileEntries[key];
 
                         int nSpawns = spawnList.Count + parentTileEntries.Count;
 
@@ -118,29 +117,29 @@ namespace DataExtractor.Vmap.Collision
                         writer.Write(nSpawns);
                         // write tile spawns
                         foreach (var tileSpawn in spawnList)
-                            ModelSpawn.WriteToFile(writer, mapPair.Value.UniqueEntries[tileSpawn.Id]);
+                            ModelSpawn.WriteToFile(writer, mapSpawn.UniqueEntries[tileSpawn.Id]);
 
                         foreach (var spawnItr in parentTileEntries)
-                            ModelSpawn.WriteToFile(writer, mapPair.Value.UniqueEntries[spawnItr.Id]);
+                            ModelSpawn.WriteToFile(writer, mapSpawn.UniqueEntries[spawnItr.Id]);
                     }
                 }
             }
 
             // add an object models, listed in temp_gameobject_models file
-            exportGameobjectModels();
+            ExportGameobjectModels();
 
             // export objects
             Console.WriteLine("Converting Model Files");
             foreach (var mfile in spawnedModelFiles)
             {
                 Console.WriteLine($"Converting {mfile}");
-                convertRawFile(mfile);
+                ConvertRawFile(mfile);
             }
 
             return success;
         }
 
-        bool readMapSpawns()
+        bool ReadMapSpawns()
         {
             string fname = iSrcDir + "dir_bin";
             if (!File.Exists(fname))
@@ -149,7 +148,7 @@ namespace DataExtractor.Vmap.Collision
                 return false;
             }
 
-            using (BinaryReader binaryReader = new BinaryReader(File.Open(fname, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader binaryReader = new(File.Open(fname, FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 Console.WriteLine("Read coordinate mapping...");
                 long fileLength = binaryReader.BaseStream.Length;
@@ -158,8 +157,7 @@ namespace DataExtractor.Vmap.Collision
                     // read mapID, Flags, NameSet, UniqueId, Pos, Rot, Scale, Bound_lo, Bound_hi, name
                     uint mapID = binaryReader.ReadUInt32();
 
-                    ModelSpawn spawn;
-                    if (!ModelSpawn.ReadFromFile(binaryReader, out spawn))
+                    if (!ModelSpawn.ReadFromFile(binaryReader, out ModelSpawn spawn))
                         break;
 
                     if (!mapData.ContainsKey(mapID))
@@ -177,16 +175,16 @@ namespace DataExtractor.Vmap.Collision
             return true;
         }
 
-        bool calculateTransformedBound(ModelSpawn spawn)
+        bool CalculateTransformedBound(ModelSpawn spawn)
         {
             string modelFilename = iSrcDir + spawn.name.TrimEnd('\0');
 
-            ModelPosition modelPosition = new ModelPosition();
+            ModelPosition modelPosition = new();
             modelPosition.iDir = spawn.iRot;
             modelPosition.iScale = spawn.iScale;
-            modelPosition.init();
+            modelPosition.Init();
 
-            WorldModel_Raw raw_model = new WorldModel_Raw();
+            WorldModel_Raw raw_model = new();
             if (!raw_model.Read(modelFilename))
                 return false;
 
@@ -195,28 +193,28 @@ namespace DataExtractor.Vmap.Collision
                 Console.WriteLine($"Warning: '{modelFilename}' does not seem to be a M2 model!");
 
             AxisAlignedBox modelBound = AxisAlignedBox.NaN;
-            modelBound.merge(modelPosition.transform(raw_model.groupsArray[0].bounds.Lo));
-            modelBound.merge(modelPosition.transform(raw_model.groupsArray[0].bounds.Hi));
+            modelBound.merge(modelPosition.Transform(raw_model.groupsArray[0].bounds.Lo));
+            modelBound.merge(modelPosition.Transform(raw_model.groupsArray[0].bounds.Hi));
 
             spawn.iBound = modelBound + spawn.iPos;
             spawn.flags |= ModelFlags.HasBound;
             return true;
         }
 
-        void convertRawFile(string pModelFilename)
+        void ConvertRawFile(string pModelFilename)
         {
             string filename = iSrcDir + pModelFilename;
 
-            WorldModel_Raw raw_model = new WorldModel_Raw();
+            WorldModel_Raw raw_model = new();
             if (!raw_model.Read(filename))
                 return;
 
             // write WorldModel
-            WorldModel model = new WorldModel();
+            WorldModel model = new();
             model.setRootWmoID(raw_model.RootWMOID);
             if (!raw_model.groupsArray.Empty())
             {
-                List<GroupModel> groupsArray = new List<GroupModel>();
+                List<GroupModel> groupsArray = new();
 
                 int groups = raw_model.groupsArray.Length;
                 for (uint g = 0; g < groups; ++g)
@@ -237,18 +235,18 @@ namespace DataExtractor.Vmap.Collision
             model.writeFile(iDestDir + "/" + pModelFilename);
         }
 
-        void exportGameobjectModels()
+        void ExportGameobjectModels()
         {
             if (!File.Exists(iSrcDir + "/" + "temp_gameobject_models"))
                 return;
 
-            using (BinaryReader reader = new BinaryReader(File.Open(iSrcDir + "/" + "temp_gameobject_models", FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader reader = new(File.Open(iSrcDir + "/" + "temp_gameobject_models", FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 string magic = reader.ReadCString();
                 if (magic != SharedConst.RAW_VMAP_MAGIC)
                     return;
 
-                using (BinaryWriter writer = new BinaryWriter(File.OpenWrite(iDestDir + "/" + "GameObjectModels.dtree")))
+                using (BinaryWriter writer = new(File.OpenWrite(iDestDir + "/" + "GameObjectModels.dtree")))
                 {
                     writer.WriteString(SharedConst.VMAP_MAGIC);
 
@@ -260,7 +258,7 @@ namespace DataExtractor.Vmap.Collision
                         int name_length = reader.ReadInt32();
                         string model_name = reader.ReadString(name_length);
 
-                        WorldModel_Raw raw_model = new WorldModel_Raw();
+                        WorldModel_Raw raw_model = new();
                         if (!raw_model.Read((iSrcDir + "/" + model_name)))
                             continue;
 
@@ -313,8 +311,8 @@ namespace DataExtractor.Vmap.Collision
         string iDestDir;
         string iSrcDir;
 
-        Dictionary<uint, MapSpawns> mapData = new Dictionary<uint, MapSpawns>();
-        HashSet<string> spawnedModelFiles = new HashSet<string>();
+        Dictionary<uint, MapSpawns> mapData = new();
+        HashSet<string> spawnedModelFiles = new();
     }
 
     public class MapSpawns
@@ -325,19 +323,20 @@ namespace DataExtractor.Vmap.Collision
         }
 
         public uint MapId;
-        public SortedDictionary<uint, ModelSpawn> UniqueEntries = new SortedDictionary<uint, ModelSpawn>();
-        public MultiMap<uint, TileSpawn> TileEntries = new MultiMap<uint, TileSpawn>();
-        public MultiMap<uint, TileSpawn> ParentTileEntries = new MultiMap<uint, TileSpawn>();
+        public SortedDictionary<uint, ModelSpawn> UniqueEntries = new();
+        public MultiMap<uint, TileSpawn> TileEntries = new();
+        public MultiMap<uint, TileSpawn> ParentTileEntries = new();
     }
 
     class ModelPosition
     {
-        public void init()
+        public void Init()
         {
             iRotation = Matrix3.fromEulerAnglesZYX(MathF.PI * iDir.Y / 180.0f, MathF.PI * iDir.X / 180.0f, MathF.PI * iDir.Z / 180.0f);
+            iPos = new();
         }
 
-        public Vector3 transform(Vector3 pIn)
+        public Vector3 Transform(Vector3 pIn)
         {
             Vector3 outVec = pIn * iScale;
             outVec = iRotation * outVec;
@@ -361,7 +360,7 @@ namespace DataExtractor.Vmap.Collision
                 return false;
             }
 
-            using (BinaryReader binaryReader = new BinaryReader(File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader binaryReader = new(File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 string vmapMagic = binaryReader.ReadCString();
                 if (vmapMagic != SharedConst.RAW_VMAP_MAGIC)
@@ -405,27 +404,26 @@ namespace DataExtractor.Vmap.Collision
 
             liquidflags = reader.ReadUInt32();
 
-            string blockId = reader.ReadStringFromChars(4);
+            string blockId = new(reader.ReadChars(4));
             if (blockId != "GRP ")
             {
-                Console.WriteLine($"Error: {blockId} != GRP ");
+                Console.WriteLine($"Error: {blockId} != GRP {reader.BaseStream.Position}");
                 return false;
-            }
-            int blocksize = reader.ReadInt32();
-            uint branches = reader.ReadUInt32();
-            for (uint b = 0; b < branches; ++b)
-            {   
-                // indexes for each branch (not used yet)
-                uint indexes = reader.ReadUInt32();
             }
 
+            int blocksize = reader.ReadInt32();
+            uint branches = reader.ReadUInt32();
+            for (int i = 0; i < branches; ++i)
+                reader.ReadUInt32();
+
             // ---- indexes
-            blockId = reader.ReadStringFromChars(4);
+            blockId = new(reader.ReadChars(4));
             if (blockId != "INDX")
             {
-                Console.WriteLine($"Error: {blockId} != INDX");
+                Console.WriteLine($"Error: {blockId} != INDX {reader.BaseStream.Position}");
                 return false;
             }
+
             blocksize = reader.ReadInt32();
             uint nindexes = reader.ReadUInt32();
             if (nindexes > 0)
@@ -439,7 +437,7 @@ namespace DataExtractor.Vmap.Collision
             }
 
             // ---- vectors
-            blockId = reader.ReadStringFromChars(4);
+            blockId = new(reader.ReadChars(4));
             if (blockId != "VERT")
             {
                 Console.WriteLine($"Error: {blockId} != VERT");
@@ -500,8 +498,8 @@ namespace DataExtractor.Vmap.Collision
 
         public AxisAlignedBox bounds;
         public uint liquidflags;
-        public List<MeshTriangle> triangles = new List<MeshTriangle>();
-        public List<Vector3> vertexArray = new List<Vector3>();
+        public List<MeshTriangle> triangles = new();
+        public List<Vector3> vertexArray = new();
         public WmoLiquid liquid;
     }
 

@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright (C) 2012-2019 CypherCore <http://github.com/CypherCore>
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -17,24 +17,19 @@
 
 using DataExtractor.Framework.Constants;
 using DataExtractor.Framework.GameMath;
+using DataExtractor.Map;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace DataExtractor.Vmap
 {
     class WMORoot
     {
-        public bool open(uint fileId)
-        {
-            return Read(Program.CascHandler.OpenFile((int)fileId));
-        }
-
-        public bool open(string fileName)
-        {
-            return Read(Program.CascHandler.OpenFile(fileName));
-        }
+        public bool Open(uint fileId) => Read(Program.CascHandler.OpenFile((int)fileId));
+        public bool Open(string fileName) => Read(Program.CascHandler.OpenFile(fileName));
 
         public bool Read(Stream stream)
         {
@@ -44,7 +39,7 @@ namespace DataExtractor.Vmap
                 return false;
             }
 
-            using (BinaryReader reader = new BinaryReader(stream))
+            using (BinaryReader reader = new(stream))
             {
                 long fileLength = reader.BaseStream.Length;
                 while (reader.BaseStream.Position < fileLength)
@@ -83,7 +78,7 @@ namespace DataExtractor.Vmap
                     {
                         DoodadData.Paths = reader.ReadBytes((int)size);
 
-                        using (BinaryReader doodadReader = new BinaryReader(new MemoryStream(DoodadData.Paths)))
+                        using (BinaryReader doodadReader = new(new MemoryStream(DoodadData.Paths)))
                         {
                             int index = 0;
                             long endIndex = doodadReader.BaseStream.Length;
@@ -143,21 +138,21 @@ namespace DataExtractor.Vmap
             return true;
         }
 
-        public static void Extract(MODF mapObjDef, string WmoInstName, bool isGlobalWmo, uint mapID, uint originalMapId, BinaryWriter writer, List<ADTOutputCache> dirfileCache)
+        public static void Extract(MODF.SMMapObjDef mapObjDef, string wmoInstanceName, bool isGlobalWmo, uint mapID, uint originalMapId, BinaryWriter writer, List<ADTOutputCache> dirfileCache)
         {
             // destructible wmo, do not dump. we can handle the vmap for these
             // in dynamic tree (gameobject vmaps)
-            if ((mapObjDef.Flags & 0x01) != 0)
+            if (mapObjDef.Flags.HasAnyFlag(MODFFlags.Destroyable))
                 return;
 
-            if (!File.Exists(Program.WmoDirectory + WmoInstName))
+            if (!File.Exists(Program.BuildingsDirectory + wmoInstanceName))
             {
-                Console.WriteLine($"WMOInstance.WMOInstance: couldn't open {WmoInstName}");
+                Console.WriteLine($"WMOInstance.WMOInstance: couldn't open {wmoInstanceName}");
                 return;
             }
 
             //-----------add_in _dir_file----------------
-            using (BinaryReader binaryReader = new BinaryReader(File.Open(Program.WmoDirectory + WmoInstName, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader binaryReader = new(File.Open(Program.BuildingsDirectory + wmoInstanceName, FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 binaryReader.BaseStream.Seek(8, SeekOrigin.Begin); // get the correct no of vertices
                 int nVertices = binaryReader.ReadInt32();
@@ -165,7 +160,7 @@ namespace DataExtractor.Vmap
                     return;
 
                 Vector3 position = fixCoords(mapObjDef.Position);
-                AxisAlignedBox bounds = new AxisAlignedBox(fixCoords(mapObjDef.Bounds.Lo), fixCoords(mapObjDef.Bounds.Hi));
+                AxisAlignedBox bounds = new(fixCoords(mapObjDef.Bounds.Lo), fixCoords(mapObjDef.Bounds.Hi));
 
                 if (isGlobalWmo)
                 {
@@ -174,7 +169,7 @@ namespace DataExtractor.Vmap
                 }
 
                 float scale = 1.0f;
-                if (Convert.ToBoolean(mapObjDef.Flags & 0x4))
+                if (mapObjDef.Flags.HasAnyFlag(MODFFlags.UnkHasScale))
                     scale = mapObjDef.Scale / 1024.0f;
                 uint uniqueId = VmapFile.GenerateUniqueObjectId(mapObjDef.UniqueId, 0);
                 uint flags = ModelFlags.HasBound;
@@ -196,16 +191,16 @@ namespace DataExtractor.Vmap
                 writer.Write(scale);
                 writer.WriteVector3(bounds.Lo);
                 writer.WriteVector3(bounds.Hi);
-                writer.Write(WmoInstName.GetByteCount());
-                writer.WriteString(WmoInstName);
+                writer.Write(wmoInstanceName.GetByteCount());
+                writer.WriteString(wmoInstanceName);
 
                 if (dirfileCache != null)
                 {
-                    ADTOutputCache cacheModelData = new ADTOutputCache();
+                    ADTOutputCache cacheModelData = new();
                     cacheModelData.Flags = flags & ~ModelFlags.ParentSpawn;
 
-                    MemoryStream stream = new MemoryStream();
-                    BinaryWriter cacheData = new BinaryWriter(stream);
+                    MemoryStream stream = new();
+                    BinaryWriter cacheData = new(stream);
                     cacheData.Write(mapObjDef.NameSet);
                     cacheData.Write(uniqueId);
                     cacheData.WriteVector3(position);
@@ -213,8 +208,8 @@ namespace DataExtractor.Vmap
                     cacheData.Write(scale);
                     cacheData.WriteVector3(bounds.Lo);
                     cacheData.WriteVector3(bounds.Hi);
-                    cacheData.Write(WmoInstName.GetByteCount());
-                    cacheData.WriteString(WmoInstName);
+                    cacheData.Write(wmoInstanceName.GetByteCount());
+                    cacheData.WriteString(wmoInstanceName);
 
                     cacheModelData.Data = stream.ToArray();
                     dirfileCache.Add(cacheModelData);
@@ -238,9 +233,9 @@ namespace DataExtractor.Vmap
         public ushort flags;
         ushort numLod;
 
-        public WMODoodadData DoodadData = new WMODoodadData();
-        public List<uint> ValidDoodadNames = new List<uint>();
-        public List<uint> groupFileDataIDs = new List<uint>();
+        public WMODoodadData DoodadData = new();
+        public List<uint> ValidDoodadNames = new();
+        public List<uint> groupFileDataIDs = new();
     }
 
     class WMOGroup
@@ -254,7 +249,7 @@ namespace DataExtractor.Vmap
                 return false;
             }
 
-            using (BinaryReader reader = new BinaryReader(stream))
+            using (BinaryReader reader = new(stream))
             {
                 long fileLength = reader.BaseStream.Length;
                 while (reader.BaseStream.Position < fileLength)
@@ -384,130 +379,83 @@ namespace DataExtractor.Vmap
             // group bound
             for (var i = 0; i < 3; ++i)
                 writer.Write(bbcorn1[i]);
+
             for (var i = 0; i < 3; ++i)
                 writer.Write(bbcorn2[i]);
+
             writer.Write(liquflags);
+
+            writer.WriteString("GRP ");
+            writer.Write(0);
+            writer.Write(0);
+
+            //-------INDX------------------------------------
+            //-------MOPY--------
+            MoviEx = new ushort[nTriangles * 3]; // "worst case" size...
+            int[] IndexRenum = new int[nVertices];
+            for (var i = 0; i < nVertices; ++i)
+                IndexRenum[i] = -1;
+
             int nColTriangles = 0;
-            if (preciseVectorData)
+            for (int i = 0; i < nTriangles; ++i)
             {
-                writer.WriteString("GRP ");
+                // Skip no collision triangles
+                bool isRenderFace = Convert.ToBoolean(MOPY[2 * i] & (int)MOPYFlags.Render) && !Convert.ToBoolean(MOPY[2 * i] & (int)MOPYFlags.Detail);
+                bool isCollision = (MOPY[2 * i] & (int)MOPYFlags.Collision) != 0 || isRenderFace;
 
-                int k = 0;
-                int moba_batch = moba_size / 12;
-                MobaEx = new int[moba_batch * 4];
-                for (int i = 8; i < moba_size; i += 12)
+                if (!isCollision)
+                    continue;
+
+                // Use this triangle
+                for (int j = 0; j < 3; ++j)
                 {
-                    MobaEx[k++] = MOBA[i];
+                    IndexRenum[MOVI[3 * i + j]] = 1;
+                    MoviEx[3 * nColTriangles + j] = MOVI[3 * i + j];
                 }
-                int moba_size_grp = moba_batch * 4 + 4;
-                writer.Write(moba_size_grp);
-                writer.Write(moba_batch);
-                for (var i = 0; i < k; ++i)
-                    writer.Write(MobaEx[i]);
-
-                int nIdexes = nTriangles * 3;
-
-                writer.WriteString("INDX");
-                int wsize = 4 + 2 * nIdexes;
-                writer.Write(wsize);
-                writer.Write(nIdexes);
-                if (nIdexes > 0)
-                    for (var i = 0; i < nIdexes; ++i)
-                        writer.Write(MOVI[i]);
-
-                writer.WriteString("VERT");
-                wsize = (int)(4 + 4 * 3 * nVertices);
-                writer.Write(wsize);
-                writer.Write(nVertices);
-                if (nVertices > 0)
-                    for (var i = 0; i < nVertices; ++i)//May need nVertices * 3
-                        writer.Write(MOVT[i]);
-
-                nColTriangles = nTriangles;
+                ++nColTriangles;
             }
-            else
+
+            // assign new vertex index numbers
+            int nColVertices = 0;
+            for (uint i = 0; i < nVertices; ++i)
             {
-                writer.WriteString("GRP ");
-                int k = 0;
-                int moba_batch = moba_size / 12;
-                MobaEx = new int[moba_batch * 4];
-                for (int i = 8; i < moba_size; i += 12)
+                if (IndexRenum[i] == 1)
                 {
-                    MobaEx[k++] = MOBA[i];
+                    IndexRenum[i] = nColVertices;
+                    ++nColVertices;
                 }
-
-                int moba_size_grp = moba_batch * 4 + 4;
-                writer.Write(moba_size_grp);
-                writer.Write(moba_batch);
-                for (var i = 0; i < k; ++i)
-                    writer.Write(MobaEx[i]);
-
-                //-------INDX------------------------------------
-                //-------MOPY--------
-                MoviEx = new ushort[nTriangles * 3]; // "worst case" size...
-                int[] IndexRenum = new int[nVertices];
-                for (var i = 0; i < nVertices; ++i)
-                    IndexRenum[i] = 0xFF;
-                for (int i = 0; i < nTriangles; ++i)
-                {
-                    // Skip no collision triangles
-                    bool isRenderFace = Convert.ToBoolean(MOPY[2 * i] & (int)MopyFlags.Render) && !Convert.ToBoolean(MOPY[2 * i] & (int)MopyFlags.Detail);
-                    bool isCollision = (MOPY[2 * i] & (int)MopyFlags.Collision) != 0 || isRenderFace;
-
-                    if (!isCollision)
-                        continue;
-
-                    // Use this triangle
-                    for (int j = 0; j < 3; ++j)
-                    {
-                        IndexRenum[MOVI[3 * i + j]] = 1;
-                        MoviEx[3 * nColTriangles + j] = MOVI[3 * i + j];
-                    }
-                    ++nColTriangles;
-                }
-
-                // assign new vertex index numbers
-                int nColVertices = 0;
-                for (uint i = 0; i < nVertices; ++i)
-                {
-                    if (IndexRenum[i] == 1)
-                    {
-                        IndexRenum[i] = nColVertices;
-                        ++nColVertices;
-                    }
-                }
-
-                // translate triangle indices to new numbers
-                for (int i = 0; i < 3 * nColTriangles; ++i)
-                {
-                    //assert(MoviEx[i] < nVertices);
-                    MoviEx[i] = (ushort)IndexRenum[MoviEx[i]];
-                }
-
-                // write triangle indices
-                writer.Write(0x58444E49);
-                writer.Write(nColTriangles * 6 + 4);
-                writer.Write(nColTriangles * 3);
-
-                for (var i = 0; i< nColTriangles * 3; ++i)
-                    writer.Write(MoviEx[i]);
-
-                // write vertices
-                writer.Write(0x54524556);
-                writer.Write(nColVertices * 3 * 4 + 4);
-                writer.Write(nColVertices);
-                for (uint i = 0; i < nVertices; ++i)
-                {
-                    if (IndexRenum[i] >= 0)
-                    {
-                        writer.Write(MOVT[3 * i]);
-                        writer.Write(MOVT[3 * i + 1]);
-                        writer.Write(MOVT[3 * i + 2]);
-                    }
-                }
-
-                //assert(check == 0);
             }
+
+            // translate triangle indices to new numbers
+            for (int i = 0; i < 3 * nColTriangles; ++i)
+            {
+                //assert(MoviEx[i] < nVertices);
+                MoviEx[i] = (ushort)IndexRenum[MoviEx[i]];
+            }
+
+            // write triangle indices
+            writer.WriteString("INDX");
+            writer.Write(nColTriangles * 6 + 4);
+            writer.Write(nColTriangles * 3);
+
+            for (var i = 0; i< nColTriangles * 3; ++i)
+                writer.Write(MoviEx[i]);
+
+            // write vertices
+            writer.WriteString("VERT");
+            writer.Write(nColVertices * 3 * 4 + 4);
+            writer.Write(nColVertices);
+            for (uint i = 0; i < nVertices; ++i)
+            {
+                if (IndexRenum[i] >= 0)
+                {
+                    writer.Write(MOVT[3 * i]);
+                    writer.Write(MOVT[3 * i + 1]);
+                    writer.Write(MOVT[3 * i + 2]);
+                }
+            }
+
+            //assert(check == 0);
 
             //------LIQU------------------------
             if (Convert.ToBoolean(liquflags & 3))
@@ -520,7 +468,7 @@ namespace DataExtractor.Vmap
                     LIQU_totalSize += hlq.xtiles * hlq.ytiles;
                 }
 
-                writer.Write(0x5551494C);
+                writer.WriteString("LIQU");
                 writer.Write(LIQU_totalSize);
                 writer.Write(groupLiquid);
                 if (Convert.ToBoolean(liquflags & 1))
@@ -531,7 +479,7 @@ namespace DataExtractor.Vmap
                         writer.Write(LiquEx[i].height);
                     // todo: compress to bit field
                     writer.Write(LiquBytes, 0, hlq.xtiles * hlq.ytiles);
-                }                  
+                }
             }
 
             return nColTriangles;
@@ -589,7 +537,7 @@ namespace DataExtractor.Vmap
         int nTriangles; // number when loaded
         uint liquflags;
 
-        public List<ushort> DoodadReferences = new List<ushort>();
+        public List<ushort> DoodadReferences = new();
 
         struct WMOLiquidVert
         {
@@ -614,11 +562,11 @@ namespace DataExtractor.Vmap
 
     class WMODoodadData
     {
-        public List<MODS> Sets = new List<MODS>();
+        public List<MODS> Sets = new();
         public byte[] Paths;
         public uint[] FileDataIds;
-        public List<MODD> Spawns = new List<MODD>();
-        public List<ushort> References = new List<ushort>();
+        public List<MODD> Spawns = new();
+        public List<ushort> References = new();
     }
 
     [StructLayout(LayoutKind.Sequential)]

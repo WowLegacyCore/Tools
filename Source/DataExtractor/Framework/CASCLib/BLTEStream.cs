@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace DataExtractor.CASCLib
 {
     [Serializable]
-    class BLTEDecoderException : Exception
+    public class BLTEDecoderException : Exception
     {
         public int ErrorCode { get; }
 
@@ -30,10 +30,10 @@ namespace DataExtractor.CASCLib
         public byte[] Data;
     }
 
-    class BLTEStream : Stream
+    public class BLTEStream : Stream
     {
         private BinaryReader _reader;
-        private MD5 _md5 = MD5.Create();
+        private readonly MD5 _md5 = MD5.Create();
         private MemoryStream _memStream;
         private DataBlock[] _dataBlocks;
         private Stream _stream;
@@ -128,7 +128,7 @@ namespace DataExtractor.CASCLib
 
             for (int i = 0; i < numBlocks; i++)
             {
-                DataBlock block = new DataBlock();
+                DataBlock block = new();
 
                 if (headerSize != 0)
                 {

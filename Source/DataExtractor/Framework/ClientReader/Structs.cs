@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright (C) 2012-2019 CypherCore <http://github.com/CypherCore>
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -29,6 +29,7 @@ namespace DataExtractor.Framework.ClientReader
     public sealed class GameObjectDisplayInfoRecord
     {
         public uint Id;
+        public string ModelName;
         public float[] GeoBox = new float[6];
         public uint FileDataID;
         public ushort ObjectEffectPackageID;
@@ -59,7 +60,7 @@ namespace DataExtractor.Framework.ClientReader
         public string Name;
         public string[] Texture = new string[6];
         public ushort Flags;
-        public byte SoundBank;                                                // used to be "type", maybe needs fixing (works well for now)
+        public byte SoundBank;
         public uint SoundID;
         public uint SpellID;
         public float MaxDarkenDepth;
@@ -84,12 +85,10 @@ namespace DataExtractor.Framework.ClientReader
         public uint Id;
         public string Directory;
         public string MapName;
-        public string InternalName;
-        public string MapDescription0;                               // Horde
-        public string MapDescription1;                               // Alliance
+        public string MapDescription0;
+        public string MapDescription1;
         public string PvpShortDescription;
         public string PvpLongDescription;
-        public float[] Corpse = new float[2];                                           // entrance coordinates in ghost mode  (in most cases = normal entrance)
         public byte MapType;
         public byte InstanceType;
         public byte ExpansionID;
@@ -100,11 +99,10 @@ namespace DataExtractor.Framework.ClientReader
         public short CosmeticParentMapID;
         public byte TimeOffset;
         public float MinimapIconScale;
-        public short CorpseMapID;                                              // map_id of entrance map in ghost mode (continent always and in most cases = normal entrance)
+        public short CorpseMapID;
         public byte MaxPlayers;
         public short WindSettingsID;
         public uint ZmpFileDataID;
-        public uint WdtFileDataID;
         public uint[] Flags = new uint[2];
     }
 }

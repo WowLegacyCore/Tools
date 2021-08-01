@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,7 +16,7 @@ namespace DataExtractor.CASCLib
 
     public class VerBarConfig
     {
-        private readonly List<Dictionary<string, string>> Data = new List<Dictionary<string, string>>();
+        private readonly List<Dictionary<string, string>> Data = new();
 
         public int Count => Data.Count;
 
@@ -73,7 +73,7 @@ namespace DataExtractor.CASCLib
 
     public class KeyValueConfig
     {
-        private readonly Dictionary<string, List<string>> Data = new Dictionary<string, List<string>>();
+        private readonly Dictionary<string, List<string>> Data = new();
 
         public List<string> this[string key]
         {
@@ -138,12 +138,16 @@ namespace DataExtractor.CASCLib
         {
             var config = new CASCConfig { OnlineMode = true, Region = region, Product = product };
 
-            using (var cdnsStream = CDNIndexHandler.OpenFileDirect(string.Format("http://us.patch.battle.net:1119/{0}/cdns", product)))
+            using (var ribbit = new RibbitClient("us"))
+            using (var cdnsStream = ribbit.GetAsStream($"v1/products/{product}/cdns"))
+            //using (var cdnsStream = CDNIndexHandler.OpenFileDirect(string.Format("http://us.patch.battle.net:1119/{0}/cdns", product)))
             {
                 config._CDNData = VerBarConfig.ReadVerBarConfig(cdnsStream);
             }
 
-            using (var versionsStream = CDNIndexHandler.OpenFileDirect(string.Format("http://us.patch.battle.net:1119/{0}/versions", product)))
+            using (var ribbit = new RibbitClient("us"))
+            using (var versionsStream = ribbit.GetAsStream($"v1/products/{product}/versions"))
+            //using (var versionsStream = CDNIndexHandler.OpenFileDirect(string.Format("http://us.patch.battle.net:1119/{0}/versions", product)))
             {
                 config._VersionsData = VerBarConfig.ReadVerBarConfig(versionsStream);
             }

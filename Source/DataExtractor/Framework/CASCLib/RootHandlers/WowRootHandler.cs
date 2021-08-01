@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -68,6 +68,7 @@ namespace DataExtractor.CASCLib
         F00100000 = 0x100000, // new 9.0
         F00200000 = 0x200000, // new 9.0
         F00400000 = 0x400000, // new 9.0
+        F00800000 = 0x800000, // new 9.0
         F02000000 = 0x2000000, // new 9.0
         F04000000 = 0x4000000, // new 9.0
         Encrypted = 0x8000000, // encrypted may be?
@@ -89,7 +90,7 @@ namespace DataExtractor.CASCLib
         public LocaleFlags LocaleFlags;
     }
 
-    class FileDataHash
+    static class FileDataHash
     {
         public static ulong ComputeHash(int fileDataId)
         {
@@ -106,10 +107,10 @@ namespace DataExtractor.CASCLib
 
     public class WowRootHandler : RootHandlerBase
     {
-        private MultiDictionary<int, RootEntry> RootData = new MultiDictionary<int, RootEntry>();
-        private Dictionary<int, ulong> FileDataStore = new Dictionary<int, ulong>();
-        private Dictionary<ulong, int> FileDataStoreReverse = new Dictionary<ulong, int>();
-        private HashSet<ulong> UnknownFiles = new HashSet<ulong>();
+        private MultiDictionary<int, RootEntry> RootData = new();
+        private Dictionary<int, ulong> FileDataStore = new();
+        private Dictionary<ulong, int> FileDataStoreReverse = new();
+        private HashSet<ulong> UnknownFiles = new();
 
         public override int Count => RootData.Count;
         public override int CountTotal => RootData.Sum(re => re.Value.Count);
@@ -143,10 +144,10 @@ namespace DataExtractor.CASCLib
                 LocaleFlags localeFlags = (LocaleFlags)stream.ReadUInt32();
 
                 if (localeFlags == LocaleFlags.None)
-                    throw new Exception("block.LocaleFlags == LocaleFlags.None");
+                    throw new InvalidDataException("block.LocaleFlags == LocaleFlags.None");
 
-                if (contentFlags != ContentFlags.None && (contentFlags & (ContentFlags.F00000001 | ContentFlags.Windows | ContentFlags.MacOS | ContentFlags.Alternate | ContentFlags.F00020000 | ContentFlags.F00080000 | ContentFlags.F00100000 | ContentFlags.F00400000 | ContentFlags.F02000000 | ContentFlags.NotCompressed | ContentFlags.NoNameHash | ContentFlags.F20000000)) == 0)
-                    throw new Exception("block.ContentFlags != ContentFlags.None");
+                if (contentFlags != ContentFlags.None && (contentFlags & (ContentFlags.F00000001 | ContentFlags.Windows | ContentFlags.MacOS | ContentFlags.Alternate | ContentFlags.F00020000 | ContentFlags.F00080000 | ContentFlags.F00100000 | ContentFlags.F00200000 | ContentFlags.F00400000 | ContentFlags.F02000000 | ContentFlags.NotCompressed | ContentFlags.NoNameHash | ContentFlags.F20000000)) == 0)
+                    throw new InvalidDataException("block.ContentFlags != ContentFlags.None");
 
                 RootEntry[] entries = new RootEntry[count];
                 int[] filedataIds = new int[count];
@@ -171,7 +172,7 @@ namespace DataExtractor.CASCLib
                     for (var i = 0; i < count; ++i)
                         entries[i].MD5 = stream.Read<MD5Hash>();
 
-                    if (numFilesRead > numFilesTotal - numFilesWithNameHash)
+                    if ((contentFlags & ContentFlags.NoNameHash) == 0)
                     {
                         nameHashes = new ulong[count];
 

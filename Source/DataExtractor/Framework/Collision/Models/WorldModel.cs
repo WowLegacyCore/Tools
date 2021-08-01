@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright (C) 2012-2019 CypherCore <http://github.com/CypherCore>
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -20,6 +20,7 @@ using DataExtractor.Framework.GameMath;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 
 namespace DataExtractor.Framework.Collision
 {
@@ -117,7 +118,7 @@ namespace DataExtractor.Framework.Collision
 
         public static WmoLiquid ReadFromFile(BinaryReader reader)
         {
-            WmoLiquid liquid = new WmoLiquid();
+            WmoLiquid liquid = new();
 
             liquid.iTilesX = reader.ReadUInt32();
             liquid.iTilesY = reader.ReadUInt32();
@@ -180,7 +181,7 @@ namespace DataExtractor.Framework.Collision
         {
             vertices = vert;
             triangles = tri;
-            TriBoundFunc bFunc = new TriBoundFunc(vertices);
+            TriBoundFunc bFunc = new(vertices);
             meshTree.build(triangles, bFunc.Invoke);
         }
 
@@ -299,9 +300,9 @@ namespace DataExtractor.Framework.Collision
         AxisAlignedBox iBound = AxisAlignedBox.NaN;
         uint iMogpFlags;
         uint iGroupWMOID;
-        List<Vector3> vertices = new List<Vector3>();
-        List<MeshTriangle> triangles = new List<MeshTriangle>();
-        BIH meshTree = new BIH();
+        List<Vector3> vertices = new();
+        List<MeshTriangle> triangles = new();
+        BIH meshTree = new();
         WmoLiquid iLiquid;
     }
 
@@ -326,7 +327,7 @@ namespace DataExtractor.Framework.Collision
 
         public void writeFile(string filename)
         {
-            using (BinaryWriter writer = new BinaryWriter(File.Open(filename.TrimEnd('\0'), FileMode.Create)))
+            using (BinaryWriter writer = new(File.Open(filename.TrimEnd('\0'), FileMode.Create)))
             {
                 writer.WriteString(SharedConst.VMAP_MAGIC);
                 writer.WriteString("WMOD");
@@ -357,7 +358,7 @@ namespace DataExtractor.Framework.Collision
                     return false;
             }
 
-            using (BinaryReader binaryReader = new BinaryReader(File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader binaryReader = new(File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 uint chunkSize = 0;
                 uint count = 0;
@@ -376,7 +377,7 @@ namespace DataExtractor.Framework.Collision
                 count = binaryReader.ReadUInt32();
                 for (var i = 0; i < count; ++i)
                 {
-                    GroupModel group = new GroupModel();
+                    GroupModel group = new();
                     group.ReadFromFile(binaryReader);
                     groupModels.Add(group);
                 }
@@ -397,8 +398,8 @@ namespace DataExtractor.Framework.Collision
 
         public void setRootWmoID(uint id) { RootWMOID = id; }
 
-        List<GroupModel> groupModels = new List<GroupModel>();
-        BIH groupTree = new BIH();
+        List<GroupModel> groupModels = new();
+        BIH groupTree = new();
         uint RootWMOID;
     }
 }

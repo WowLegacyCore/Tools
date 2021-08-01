@@ -7,8 +7,8 @@ namespace DataExtractor.CASCLib
 {
     public class LocalIndexHandler
     {
-        private static readonly MD5HashComparer comparer = new MD5HashComparer();
-        private Dictionary<MD5Hash, IndexEntry> LocalIndexData = new Dictionary<MD5Hash, IndexEntry>(comparer);
+        private static readonly MD5HashComparer comparer = new();
+        private Dictionary<MD5Hash, IndexEntry> LocalIndexData = new(comparer);
 
         public int Count
         {
@@ -56,7 +56,7 @@ namespace DataExtractor.CASCLib
 
                 for (int i = 0; i < numBlocks; i++)
                 {
-                    IndexEntry info = new IndexEntry();
+                    IndexEntry info = new();
                     byte[] keyBytes = br.ReadBytes(9);
                     Array.Resize(ref keyBytes, 16);
 
@@ -102,7 +102,7 @@ namespace DataExtractor.CASCLib
 
         private static List<string> GetIdxFiles(CASCConfig config)
         {
-            List<string> latestIdx = new List<string>();
+            List<string> latestIdx = new();
 
             string dataFolder = CASCGame.GetDataFolder(config.GameType);
             string dataPath = Path.Combine(dataFolder, "data");

@@ -34,6 +34,51 @@ namespace DataExtractor.CASCLib
             return (uint)(val[3] | val[2] << 8 | val[1] << 16 | val[0] << 24);
         }
 
+        public static Action<T, V> GetSetter<T, V>(this FieldInfo fieldInfo)
+        {
+            var paramExpression = Expression.Parameter(typeof(T));
+            var fieldExpression = Expression.Field(paramExpression, fieldInfo);
+            var valueExpression = Expression.Parameter(fieldInfo.FieldType);
+            var assignExpression = Expression.Assign(fieldExpression, valueExpression);
+
+            return Expression.Lambda<Action<T, V>>(assignExpression, paramExpression, valueExpression).Compile();
+        }
+
+        public static Func<T, V> GetGetter<T, V>(this FieldInfo fieldInfo)
+        {
+            var paramExpression = Expression.Parameter(typeof(T));
+            var fieldExpression = Expression.Field(paramExpression, fieldInfo);
+
+            return Expression.Lambda<Func<T, V>>(fieldExpression, paramExpression).Compile();
+        }
+
+        public static T Read<T>(this BinaryReader reader) where T : unmanaged
+        {
+            byte[] result = reader.ReadBytes(Unsafe.SizeOf<T>());
+
+            return Unsafe.ReadUnaligned<T>(ref result[0]);
+        }
+
+        public static T[] ReadArray<T>(this BinaryReader reader) where T : unmanaged
+        {
+            int numBytes = (int)reader.ReadInt64();
+
+            byte[] source = reader.ReadBytes(numBytes);
+
+            reader.BaseStream.Position += (0 - numBytes) & 0x07;
+
+            return source.CopyTo<T>();
+        }
+
+        public static T[] ReadArray<T>(this BinaryReader reader, int size) where T : unmanaged
+        {
+            int numBytes = Unsafe.SizeOf<T>() * size;
+
+            byte[] source = reader.ReadBytes(numBytes);
+
+            return source.CopyTo<T>();
+        }
+
         public static unsafe T[] CopyTo<T>(this byte[] src) where T : unmanaged
         {
             T[] result = new T[src.Length / Unsafe.SizeOf<T>()];
@@ -126,7 +171,7 @@ namespace DataExtractor.CASCLib
 
         public static string ToBinaryString(this BitArray bits)
         {
-            StringBuilder sb = new StringBuilder(bits.Length);
+            StringBuilder sb = new(bits.Length);
 
             for (int i = 0; i < bits.Length; ++i)
             {
@@ -235,7 +280,7 @@ namespace DataExtractor.CASCLib
 
     public static class CStringExtensions
     {
-        /// <summary> Reads the NULL terminated string from 
+        /// <summary> Reads the NULL terminated string from
         /// the current stream and advances the current position of the stream by string length + 1.
         /// <seealso cref="BinaryReader.ReadString"/>
         /// </summary>
@@ -244,7 +289,7 @@ namespace DataExtractor.CASCLib
             return reader.ReadCString(Encoding.UTF8);
         }
 
-        /// <summary> Reads the NULL terminated string from 
+        /// <summary> Reads the NULL terminated string from
         /// the current stream and advances the current position of the stream by string length + 1.
         /// <seealso cref="BinaryReader.ReadString"/>
         /// </summary>

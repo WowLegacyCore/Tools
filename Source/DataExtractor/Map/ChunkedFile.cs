@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright (C) 2012-2019 CypherCore <http://github.com/CypherCore>
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -15,18 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//using DataExtractor.Framework.CASC.Handlers;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using DataExtractor.CASCLib;
+using DataExtractor.Map;
 
 namespace DataExtractor
 {
     class ChunkedFile
     {
-        public bool loadFile(CASCHandler cascHandler, string fileName)
+        public bool LoadFile(CASCHandler cascHandler, string fileName)
         {
             var file = cascHandler.OpenFile(fileName);
             if (file == null)
@@ -36,11 +35,11 @@ namespace DataExtractor
             if (fileSize == 0xFFFFFFFF)
                 return false;
 
-            data_size = (uint)fileSize;
-            _data = new BinaryReader(file).ReadBytes((int)data_size);
+            dataSize = (uint)fileSize;
+            data = new BinaryReader(file).ReadBytes((int)dataSize);
 
-            parseChunks();
-            if (prepareLoadedData())
+            ParseChunks();
+            if (PrepareLoadedData())
                 return true;
 
             Console.WriteLine($"Error loading {fileName}\n");
@@ -48,7 +47,7 @@ namespace DataExtractor
             return false;
         }
 
-        public bool loadFile(CASCHandler cascHandler, uint fileDataId, string description)
+        public bool LoadFile(CASCHandler cascHandler, uint fileDataId, string description)
         {
             var file = cascHandler.OpenFile((int)fileDataId);
             if (file == null)
@@ -58,11 +57,11 @@ namespace DataExtractor
             if (fileSize == 0xFFFFFFFF)
                 return false;
 
-            data_size = (uint)fileSize;
-             _data = new BinaryReader(file).ReadBytes((int)data_size);
+            dataSize = (uint)fileSize;
+            data = new BinaryReader(file).ReadBytes((int)dataSize);
 
-            parseChunks();
-            if (prepareLoadedData())
+            ParseChunks();
+            if (PrepareLoadedData())
                 return true;
 
             Console.WriteLine($"Error loading {description}\n");
@@ -70,64 +69,58 @@ namespace DataExtractor
             return false;
         }
 
-        bool prepareLoadedData()
+        bool PrepareLoadedData()
         {
             FileChunk chunk = GetChunk("MVER");
             if (chunk == null)
                 return false;
 
             // Check version
-            file_MVER version = chunk.As<file_MVER>();
-            if (version.fourcc != 0x4d564552)
-                return false;
-
-            if (version.ver != 18)
+            MVER version = chunk.As<MVER>();
+            if (version.Version != 18)
                 return false;
 
             return true;
         }
 
-        public static Dictionary<string, string> InterestingChunks = new Dictionary<string, string>()
+        public static Dictionary<string, string> InterestingChunks = new()
         {
             {"REVM", "MVER"},
             {"NIAM", "MAIN"},
             {"O2HM", "MH2O"},
             {"KNCM", "MCNK"},
             {"TVCM", "MCVT"},
-            {"OMWM", "MWMO"},
             {"QLCM", "MCLQ"},
             {"OBFM", "MFBO"},
             {"DHPM", "MPHD"},
-            {"DIAM", "MAID"}
+            {"DIAM", "MAID"},
+            {"OMWM", "MWMO"},
+            {"XDMM", "MMDX"},
+            {"FDDM", "MDDF"},
+            {"FDOM", "MODF"},
         };
 
-        public static bool IsInterestingChunk(string fcc)
-        {
-            return InterestingChunks.ContainsKey(fcc);
-        }
+        public static bool IsInterestingChunk(string fcc) => InterestingChunks.ContainsKey(fcc);
 
-        void parseChunks()
+        void ParseChunks()
         {
-            int index = 0;
-            while (index <= _data.Length - 8)
+            using (BinaryReader reader = new(new MemoryStream(data)))
             {
-                string header = Encoding.UTF8.GetString(_data, index, 4);
-                if (IsInterestingChunk(header))
+                while (reader.BaseStream.Position < reader.BaseStream.Length)
                 {
-                    uint size = BitConverter.ToUInt32(_data, index + 4);
-                    if (size <= data_size)
+                    string header = new(reader.ReadChars(4));
+                    int size = reader.ReadInt32();
+
+                    if (!IsInterestingChunk(header))
+                        reader.BaseStream.Position += size;
+                    else if (size <= dataSize)
                     {
                         header = InterestingChunks[header];
-                        FileChunk chunk = new FileChunk(_data, index, size);
-                        chunk.parseSubChunks();
 
+                        FileChunk chunk = new(reader.ReadBytes(size));
                         chunks.Add(header, chunk);
                     }
-
-                    index += (int)size + 8;
                 }
-                else
-                    index++;
             }
         }
 
@@ -140,46 +133,17 @@ namespace DataExtractor
             return null;
         }
 
-        byte[] _data;
-        uint data_size;
+        byte[] data;
+        uint dataSize;
 
-        public MultiMap<string, FileChunk> chunks = new MultiMap<string, FileChunk>();
+        public MultiMap<string, FileChunk> chunks = new();
     }
 
     class FileChunk
     {
-        public FileChunk(byte[] data, int index, uint size)
+        public FileChunk(byte[] data)
         {
-            _data = new byte[size + 8];
-            Buffer.BlockCopy(data, index, _data, 0, _data.Length);
-            _size = size;
-        }
-
-        public void parseSubChunks()
-        {
-            int index = 8; // skip self
-            while (index > 0 && index + 8 <= _data.Length)
-            {
-                string header = Encoding.UTF8.GetString(_data, index, 4);
-                if (ChunkedFile.IsInterestingChunk(header))
-                {
-                    uint subsize = BitConverter.ToUInt32(_data, index + 4);
-                    if (subsize < _size)
-                    {
-                        header = ChunkedFile.InterestingChunks[header];
-                        FileChunk chunk = new FileChunk(_data, index, subsize);
-                        chunk.parseSubChunks();
-                        if (!subchunks.ContainsKey(header))
-                            subchunks[header] = new List<FileChunk>();
-
-                        subchunks[header].Add(chunk);
-                    }
-
-                    index += (int)(subsize + 8);
-                }
-                else
-                    index += 4;
-            }
+            this.data = data;
         }
 
         public FileChunk GetSubChunk(string name)
@@ -193,14 +157,13 @@ namespace DataExtractor
 
         public T As<T>() where T : IMapStruct, new()
         {
-            T obj = new T();
-            obj.Read(_data);
+            T obj = new();
+            obj.Read(data);
             return obj;
         }
 
-        byte[] _data;
-        uint _size;
+        byte[] data;
 
-        Dictionary<string, List<FileChunk>> subchunks = new Dictionary<string, List<FileChunk>>();
+        Dictionary<string, List<FileChunk>> subchunks = new();
     }
 }

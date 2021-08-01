@@ -10,9 +10,9 @@ namespace DataExtractor.CASCLib
         protected LocalIndexHandler LocalIndex;
         protected CDNIndexHandler CDNIndex;
 
-        protected static readonly Jenkins96 Hasher = new Jenkins96();
+        protected static readonly Jenkins96 Hasher = new();
 
-        protected readonly Dictionary<int, Stream> DataStreams = new Dictionary<int, Stream>();
+        protected readonly Dictionary<int, Stream> DataStreams = new();
 
         public CASCConfig Config { get; protected set; }
 
@@ -100,7 +100,7 @@ namespace DataExtractor.CASCLib
             Stream dataStream = GetDataStream(idxInfo.Index);
             dataStream.Position = idxInfo.Offset;
 
-            using (BinaryReader reader = new BinaryReader(dataStream, Encoding.ASCII, true))
+            using (BinaryReader reader = new(dataStream, Encoding.ASCII, true))
             {
                 byte[] md5 = reader.ReadBytes(16);
                 Array.Reverse(md5);
@@ -123,6 +123,21 @@ namespace DataExtractor.CASCLib
             }
         }
 
+        public void SaveFileTo(MD5Hash key, string path, string name)
+        {
+            try
+            {
+                if (Config.OnlineMode)
+                    ExtractFileOnline(key, path, name);
+                else
+                    ExtractFileLocal(key, path, name);
+            }
+            catch
+            {
+                ExtractFileOnline(key, path, name);
+            }
+        }
+
         protected abstract void ExtractFileOnline(MD5Hash key, string path, string name);
 
         protected void ExtractFileOnlineInternal(IndexEntry idxInfo, MD5Hash key, string path, string name)
@@ -130,7 +145,7 @@ namespace DataExtractor.CASCLib
             if (idxInfo != null)
             {
                 using (Stream s = CDNIndex.OpenDataFile(idxInfo))
-                using (BLTEStream blte = new BLTEStream(s, key))
+                using (BLTEStream blte = new(s, key))
                 {
                     blte.ExtractToFile(path, name);
                 }
@@ -138,10 +153,20 @@ namespace DataExtractor.CASCLib
             else
             {
                 using (Stream s = CDNIndex.OpenDataFileDirect(key))
-                using (BLTEStream blte = new BLTEStream(s, key))
+                using (BLTEStream blte = new(s, key))
                 {
                     blte.ExtractToFile(path, name);
                 }
+            }
+        }
+
+        private void ExtractFileLocal(MD5Hash key, string path, string name)
+        {
+            Stream stream = GetLocalDataStream(key);
+
+            using (BLTEStream blte = new(stream, key))
+            {
+                blte.ExtractToFile(path, name);
             }
         }
 

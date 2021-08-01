@@ -140,7 +140,7 @@ namespace DataExtractor.Mmap
             float[] bmax = { 0, 0, 0 };
             float[] lmin = { 0, 0, 0 };
             float[] lmax = { 0, 0, 0 };
-            MeshData meshData = new MeshData();
+            MeshData meshData = new();
 
             // make sure we process maps which don't have tiles
             // initialize the static tree, which loads WDT models
@@ -225,7 +225,7 @@ namespace DataExtractor.Mmap
             }
         }
 
-        private static readonly object _lock = new object();
+        private static readonly object _lock = new();
 
         public void buildMap(uint mapID)
         {
@@ -261,8 +261,7 @@ namespace DataExtractor.Mmap
             if (!tiles.Empty())
             {
                 // build navMesh                
-                dtNavMesh navMesh;
-                buildNavMesh(mapID, out navMesh);
+                buildNavMesh(mapID, out dtNavMesh navMesh);
                 if (navMesh == null)
                 {
                     lock (_lock)
@@ -304,7 +303,7 @@ namespace DataExtractor.Mmap
 
         void buildTile(uint mapID, uint tileX, uint tileY, dtNavMesh navMesh)
         {
-            MeshData meshData = new MeshData();
+            MeshData meshData = new();
 
             // get heightmap data
             m_terrainBuilder.loadMap(mapID, tileX, tileY, meshData, _vmapManager);
@@ -321,7 +320,7 @@ namespace DataExtractor.Mmap
             TerrainBuilder.cleanVertices(meshData.liquidVerts, meshData.liquidTris);
 
             // gather all mesh data for final data check, and bounds calculation
-            List<float> allVerts = new List<float>();
+            List<float> allVerts = new();
             allVerts.AddRange(meshData.liquidVerts);
             allVerts.AddRange(meshData.solidVerts);
 
@@ -376,14 +375,12 @@ namespace DataExtractor.Mmap
             }
 
             // use Max because '32 - tileX' is negative for values over 32
-            float[] bmin;
-            float[] bmax;
-            getTileBounds(tileXMax, tileYMax, null, 0, out bmin, out bmax);
+            getTileBounds(tileXMax, tileYMax, null, 0, out float[] bmin, out float[] bmax);
 
             /***       now create the navmesh       ***/
 
             // navmesh creation params
-            dtNavMeshParams navMeshParams = new dtNavMeshParams();
+            dtNavMeshParams navMeshParams = new();
             navMeshParams.tileWidth = SharedConst.GRID_SIZE;
             navMeshParams.tileHeight = SharedConst.GRID_SIZE;
             rcVcopy(navMeshParams.orig, bmin);
@@ -398,7 +395,7 @@ namespace DataExtractor.Mmap
             }
 
             string fileName = $"mmaps/{mapID:D4}.mmap";
-            using (BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create, FileAccess.Write)))
+            using (BinaryWriter writer = new(File.Open(fileName, FileMode.Create, FileAccess.Write)))
             {
                 // now that we know navMesh params are valid, we can write them to file
                 writer.Write(bmin[0]);
@@ -437,7 +434,7 @@ namespace DataExtractor.Mmap
             int VERTEX_PER_TILE = 80;// m_bigBaseUnit ? 40 : 80; // must divide VERTEX_PER_MAP
             int TILES_PER_MAP = VERTEX_PER_MAP / VERTEX_PER_TILE;
 
-            rcConfig config = new rcConfig();
+            rcConfig config = new();
             for (var i = 0; i < 3; ++i)
             {
                 config.bmin[i] = bmin[i];
@@ -463,8 +460,7 @@ namespace DataExtractor.Mmap
             config.detailSampleMaxError = config.ch * 1;
 
             // this sets the dimensions of the heightfield - should maybe happen before border padding
-            int width, height;
-            rcCalcGridSize(config.bmin, config.bmax, config.cs, out width, out height);
+            rcCalcGridSize(config.bmin, config.bmax, config.cs, out int width, out int height);
             config.width = width;
             config.height = height;
 
@@ -472,7 +468,7 @@ namespace DataExtractor.Mmap
             Tile[] tiles = new Tile[TILES_PER_MAP * TILES_PER_MAP];
 
             // Initialize per tile config.
-            rcConfig tileCfg = new rcConfig(config);
+            rcConfig tileCfg = new(config);
             tileCfg.width = config.tileSize + config.borderSize * 2;
             tileCfg.height = config.tileSize + config.borderSize * 2;
 
@@ -578,10 +574,10 @@ namespace DataExtractor.Mmap
                 }
             }
 
-            rcPolyMesh pmesh = new rcPolyMesh();
+            rcPolyMesh pmesh = new();
             rcMergePolyMeshes(m_rcContext, pmmerge, nmerge, pmesh);
 
-            rcPolyMeshDetail dmesh = new rcPolyMeshDetail();
+            rcPolyMeshDetail dmesh = new();
             rcMergePolyMeshDetails(m_rcContext, dmmerge, nmerge, dmesh);
 
             // set polygons as walkable
@@ -599,7 +595,7 @@ namespace DataExtractor.Mmap
             }
 
             // setup mesh parameters
-            dtNavMeshCreateParams createParams = new dtNavMeshCreateParams();
+            dtNavMeshCreateParams createParams = new();
             createParams.verts = pmesh.verts;
             createParams.vertCount = pmesh.nverts;
             createParams.polys = pmesh.polys;
@@ -633,7 +629,6 @@ namespace DataExtractor.Mmap
             createParams.buildBvTree = true;
 
             // will hold final navmesh
-            dtRawTileData dtRawTile;
 
             do
             {
@@ -672,7 +667,7 @@ namespace DataExtractor.Mmap
                     break;
                 }
 
-                if (!dtCreateNavMeshData(createParams, out dtRawTile))
+                if (!dtCreateNavMeshData(createParams, out dtRawTileData dtRawTile))
                 {
                     //Console.WriteLine($"{tileString} Failed building navmesh tile!");
                     break;
@@ -689,12 +684,12 @@ namespace DataExtractor.Mmap
 
                 // file output
                 string fileName = $"mmaps/{mapID:D4}{tileY:D2}{tileX:D2}.mmtile";
-                using (BinaryWriter binaryWriter = new BinaryWriter(File.Open(fileName, FileMode.Create, FileAccess.Write)))
+                using (BinaryWriter binaryWriter = new(File.Open(fileName, FileMode.Create, FileAccess.Write)))
                 {
                     var navData = dtRawTile.ToBytes();
 
                     // write header
-                    MmapTileHeader header = new MmapTileHeader();
+                    MmapTileHeader header = new();
                     header.mmapMagic = SharedConst.MMAP_MAGIC;
                     header.dtVersion = SharedConst.DT_NAVMESH_VERSION;
                     header.mmapVersion = SharedConst.MMAP_VERSION;
@@ -881,7 +876,7 @@ namespace DataExtractor.Mmap
             if (!File.Exists(fileName))
                 return false;
 
-            using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader reader = new(File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 MmapTileHeader header = reader.Read<MmapTileHeader>();
                 if (header.mmapMagic != SharedConst.MMAP_MAGIC || header.dtVersion != SharedConst.DT_NAVMESH_VERSION)
@@ -918,7 +913,7 @@ namespace DataExtractor.Mmap
         }
 
         TerrainBuilder m_terrainBuilder;
-        List<MapTiles> m_tiles = new List<MapTiles>();
+        List<MapTiles> m_tiles = new();
 
         float m_maxWalkableAngle;
 
@@ -928,8 +923,8 @@ namespace DataExtractor.Mmap
         VMapManager2 _vmapManager;
         bool _debugMaps;
 
-        List<Thread> _workerThreads = new List<Thread>();
-        ProducerConsumerQueue<uint> _queue = new ProducerConsumerQueue<uint>();
+        List<Thread> _workerThreads = new();
+        ProducerConsumerQueue<uint> _queue = new();
         volatile bool _cancelationToken;
     }
 
@@ -956,7 +951,7 @@ namespace DataExtractor.Mmap
         }
 
         public uint m_mapId;
-        public SortedSet<uint> m_tiles = new SortedSet<uint>();
+        public SortedSet<uint> m_tiles = new();
     }
 
     struct Tile
