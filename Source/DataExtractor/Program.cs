@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2012-2019 CypherCore <http://github.com/CypherCore>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@ using DataExtractor.Vmap;
 using DataExtractor.Vmap.Collision;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 
@@ -48,8 +49,6 @@ namespace DataExtractor
             BaseDirectory = Environment.CurrentDirectory;
             Product = "wow_classic_ptr";
             BuildingsDirectory = $"{BaseDirectory}/Buildings/";
-
-            Console.WriteLine(BuildingsDirectory);
 
             if (args.Length > 0)
                 BaseDirectory = Path.GetDirectoryName(args[0]);
@@ -218,7 +217,7 @@ namespace DataExtractor
                     }
                 }
                 else
-                    Console.WriteLine($"Unable to open file {$"File{cameraRecord.FileDataID:X8}.xxx"} in the archive: \n");
+                    Console.WriteLine($"Unable to open file {$"FILE{cameraRecord.FileDataID:X8}.xxx"} in the archive: \n");
             }
 
             Console.WriteLine($"Extracted {count} Camera files.");
@@ -401,7 +400,7 @@ namespace DataExtractor
 
             MapBuilder builder = new(vm, debugMaps);
 
-            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var watch = Stopwatch.StartNew();
             if (mapId != -1)
                 builder.buildMap((uint)mapId);
             else
@@ -431,13 +430,13 @@ namespace DataExtractor
         public static void Profile(string description, int iterations, Action func)
         {
             //Run at highest priority to minimize fluctuations caused by other processes/threads
-            System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.High;
-            System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            Thread.CurrentThread.Priority = ThreadPriority.Highest;
 
             // warm up
             func();
 
-            var watch = new System.Diagnostics.Stopwatch();
+            var watch = new Stopwatch();
 
             // clean up
             GC.Collect();

@@ -103,7 +103,7 @@ namespace DataExtractor.Vmap
                             if (DoodadData.FileDataIds[i] == 0)
                                 continue;
 
-                            string path = $"File{DoodadData.FileDataIds[i]:X8}.xxx";
+                            string path = $"FILE{DoodadData.FileDataIds[i]:X8}.xxx";
                             if (VmapFile.ExtractSingleModel(path))
                                 ValidDoodadNames.Add(i);
                         }

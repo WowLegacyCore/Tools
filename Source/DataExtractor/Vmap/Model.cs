@@ -233,6 +233,9 @@ namespace DataExtractor.Vmap
 
             ushort doodadId = 0;
             MODS doodadSetData = doodadData.Sets[wmo.DoodadSet];
+            if (doodadData.Paths == null)
+                return;
+
             using (BinaryReader reader = new(new MemoryStream(doodadData.Paths)))
             {
                 foreach (ushort doodadIndex in doodadData.References)

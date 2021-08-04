@@ -30,8 +30,8 @@ namespace DataExtractor.Vmap.Collision
     {
         public TileAssembler(string pSrcDirName, string pDestDirName)
         {
-            iDestDir = pDestDirName;
-            iSrcDir = pSrcDirName;
+            destinationDirectory = pDestDirName;
+            sourceDirectory = pSrcDirName;
         }
 
         public bool ConvertWorld2()
@@ -78,7 +78,7 @@ namespace DataExtractor.Vmap.Collision
                 // ===> possibly move this code to StaticMapTree class
 
                 // write map tree file
-                string mapfilename = $"{iDestDir}/{id:D4}.vmtree";
+                string mapfilename = $"{destinationDirectory}/{id:D4}.vmtree";
                 using (BinaryWriter writer = new(File.Open(mapfilename, FileMode.Create, FileAccess.Write)))
                 {
                     //general info
@@ -104,7 +104,7 @@ namespace DataExtractor.Vmap.Collision
                     var spawnList = mapSpawn.TileEntries[key];
 
                     StaticMapTree.UnpackTileID(key, out var x, out var y);
-                    string tilefilename =  $"{iDestDir}/{id:D4}_{y:D2}_{x:D2}.vmtile";
+                    string tilefilename =  $"{destinationDirectory}/{id:D4}_{y:D2}_{x:D2}.vmtile";
                     using (BinaryWriter writer = new(File.Open(tilefilename, FileMode.Create, FileAccess.Write)))
                     {
                         var parentTileEntries = mapSpawn.ParentTileEntries[key];
@@ -141,7 +141,7 @@ namespace DataExtractor.Vmap.Collision
 
         bool ReadMapSpawns()
         {
-            string fname = iSrcDir + "dir_bin";
+            string fname = sourceDirectory + "dir_bin";
             if (!File.Exists(fname))
             {
                 Console.WriteLine("Could not read dir_bin file!");
@@ -177,7 +177,7 @@ namespace DataExtractor.Vmap.Collision
 
         bool CalculateTransformedBound(ModelSpawn spawn)
         {
-            string modelFilename = iSrcDir + spawn.name.TrimEnd('\0');
+            string modelFilename = sourceDirectory + spawn.name.TrimEnd('\0');
 
             ModelPosition modelPosition = new();
             modelPosition.iDir = spawn.iRot;
@@ -203,7 +203,7 @@ namespace DataExtractor.Vmap.Collision
 
         void ConvertRawFile(string pModelFilename)
         {
-            string filename = iSrcDir + pModelFilename;
+            string filename = sourceDirectory + pModelFilename;
 
             WorldModel_Raw raw_model = new();
             if (!raw_model.Read(filename))
@@ -232,21 +232,21 @@ namespace DataExtractor.Vmap.Collision
             if (!pModelFilename.Contains('\0'))
                 pModelFilename += ".vmo";
 
-            model.writeFile(iDestDir + "/" + pModelFilename);
+            model.writeFile(destinationDirectory + "/" + pModelFilename);
         }
 
         void ExportGameobjectModels()
         {
-            if (!File.Exists(iSrcDir + "/" + "temp_gameobject_models"))
+            if (!File.Exists(sourceDirectory + "/" + "temp_gameobject_models"))
                 return;
 
-            using (BinaryReader reader = new(File.Open(iSrcDir + "/" + "temp_gameobject_models", FileMode.Open, FileAccess.Read, FileShare.Read)))
+            using (BinaryReader reader = new(File.Open(sourceDirectory + "/" + "temp_gameobject_models", FileMode.Open, FileAccess.Read, FileShare.Read)))
             {
                 string magic = reader.ReadCString();
                 if (magic != SharedConst.RAW_VMAP_MAGIC)
                     return;
 
-                using (BinaryWriter writer = new(File.OpenWrite(iDestDir + "/" + "GameObjectModels.dtree")))
+                using (BinaryWriter writer = new(File.OpenWrite(destinationDirectory + "/" + "GameObjectModels.dtree")))
                 {
                     writer.WriteString(SharedConst.VMAP_MAGIC);
 
@@ -255,51 +255,51 @@ namespace DataExtractor.Vmap.Collision
                     {
                         uint displayId = reader.ReadUInt32();
                         bool isWmo = reader.ReadBoolean();
-                        int name_length = reader.ReadInt32();
-                        string model_name = reader.ReadString(name_length);
+                        int nameLen = reader.ReadInt32();
+                        string modelName = reader.ReadString(nameLen);
 
-                        WorldModel_Raw raw_model = new();
-                        if (!raw_model.Read((iSrcDir + "/" + model_name)))
+                        WorldModel_Raw rawModel = new();
+                        if (!rawModel.Read($"{sourceDirectory}/{modelName}"))
                             continue;
 
-                        spawnedModelFiles.Add(model_name);
+                        spawnedModelFiles.Add(modelName);
+
                         AxisAlignedBox bounds = AxisAlignedBox.NaN;
                         bool boundEmpty = true;
-                        for (uint g = 0; g < raw_model.groupsArray.Length; ++g)
+                        for (uint i = 0; i < rawModel.groupsArray.Length; ++i)
                         {
-                            var vertices = raw_model.groupsArray[g].vertexArray;
+                            var vertices = rawModel.groupsArray[i].vertexArray;
                             if (vertices == null)
                                 continue;
 
-                            for (int i = 0; i < vertices.Count; ++i)
+                            foreach (var vertice in vertices)
                             {
-                                Vector3 v = vertices[i];
                                 if (boundEmpty)
                                 {
-                                    bounds = new AxisAlignedBox(v, v);
+                                    bounds = new(vertice, vertice);
                                     boundEmpty = false;
                                 }
                                 else
-                                    bounds.merge(v);
+                                    bounds.merge(vertice);
                             }
                         }
 
                         if (bounds.isEmpty())
                         {
-                            Console.WriteLine($"Model {model_name} has empty bounding box");
+                            Console.WriteLine($"Model {modelName} has empty bounding box");
                             continue;
                         }
 
                         if (bounds.isFinite())
                         {
-                            Console.WriteLine($"Model {model_name} has invalid bounding box");
+                            Console.WriteLine($"Model {modelName} has invalid bounding box");
                             continue;
                         }
 
                         writer.Write(displayId);
                         writer.Write(isWmo);
-                        writer.Write(name_length);
-                        writer.WriteString(model_name);
+                        writer.Write(nameLen + 1);
+                        writer.WriteString(modelName + '\0');
                         writer.WriteVector3(bounds.Lo);
                         writer.WriteVector3(bounds.Hi);
                     }
@@ -308,8 +308,8 @@ namespace DataExtractor.Vmap.Collision
 
         }
 
-        string iDestDir;
-        string iSrcDir;
+        string destinationDirectory;
+        string sourceDirectory;
 
         Dictionary<uint, MapSpawns> mapData = new();
         HashSet<string> spawnedModelFiles = new();

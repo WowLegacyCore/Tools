@@ -54,7 +54,7 @@ namespace DataExtractor.Vmap
                         continue;
 
                     bool isWmo = false;
-                    string fileName = $"File{fileId:X8}.xxx";
+                    string fileName = $"FILE{fileId:X8}.xxx";
                     if (header == "REVM")
                     {
                         isWmo = true;
@@ -149,7 +149,7 @@ namespace DataExtractor.Vmap
         public static bool ExtractSingleWmo(uint fileId)
         {
             // Copy files from archive
-            string fileName = $"File{fileId:X8}.xxx";
+            string fileName = $"FILE{fileId:X8}.xxx";
             if (File.Exists(Program.BuildingsDirectory + fileName))
                 return true;
 
@@ -288,7 +288,7 @@ namespace DataExtractor.Vmap
 
         public static bool ExtractSingleModel(uint fileId)
         {
-            string outputFile = Program.BuildingsDirectory + $"File{fileId:X8}.xxx";
+            string outputFile = Program.BuildingsDirectory + $"FILE{fileId:X8}.xxx";
             if (File.Exists(outputFile))
                 return true;
 
